@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Snarl</title>
+<style>
+  :root { --bg1:#f7f5f1; --bg2:#e8e4dc; --ink:#26262a; --accent:#ff5a4f; --line:color-mix(in srgb, var(--ink) 30%, transparent); }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; height:100%; overflow:hidden; font-family:"Avenir Next","Helvetica Neue",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--ink); user-select:none; -webkit-user-select:none; }
+  body { background:radial-gradient(110% 80% at 50% 42%, var(--bg1) 0%, var(--bg2) 100%); }
+  #shadow { position:fixed; left:50%; top:50%; width:78vmin; height:78vmin; transform:translate(-50%,-8%) scaleY(.22); background:radial-gradient(closest-side, rgba(0,0,0,.16), rgba(0,0,0,0)); pointer-events:none; }
+  #c { position:fixed; inset:0; width:100%; height:100%; touch-action:none; display:block; }
+  button { border:0; background:none; color:inherit; font:inherit; cursor:pointer; pointer-events:auto; }
+  button:active { opacity:.45; }
+  .label { font-size:12px; font-weight:500; letter-spacing:.28em; text-transform:uppercase; }
+  .pill { padding:14px 34px; border-radius:999px; box-shadow:inset 0 0 0 1px var(--line); }
+  .pill.solid { background:var(--ink); color:var(--bg1); box-shadow:none; }
+  .icon { width:44px; height:44px; display:grid; place-items:center; opacity:.7; }
+  .icon svg { width:21px; height:21px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+
+  /* in-game HUD */
+  .bar { position:fixed; left:0; right:0; display:flex; align-items:center; justify-content:space-between; padding:18px 20px; pointer-events:none; }
+  #top { top:env(safe-area-inset-top,0); }
+  #bottom { bottom:env(safe-area-inset-bottom,0); padding-bottom:30px; flex-direction:column; gap:14px; }
+  .mid { display:flex; flex-direction:column; align-items:center; gap:10px; }
+  #left { opacity:.55; white-space:pre; }
+  #hearts { display:flex; gap:8px; }
+  #hearts i { width:7px; height:7px; border-radius:50%; background:var(--accent); transition:all .3s; }
+  #hearts i.off { background:none; box-shadow:inset 0 0 0 1px var(--ink); opacity:.3; }
+  #hearts.shake { animation:shake .35s; }
+  @keyframes shake { 25%{transform:translateX(-5px)} 50%{transform:translateX(5px)} 75%{transform:translateX(-2px)} }
+  #hint { display:flex; align-items:center; gap:12px; padding:11px 14px 11px 26px; }
+  #hintN { min-width:22px; height:22px; border-radius:11px; display:grid; place-items:center; background:var(--accent); color:#fff; font-size:11px; letter-spacing:0; }
+  #hint.empty { opacity:.3; pointer-events:none; }
+  #tip { position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom,0px) + 128px); text-align:center; font-size:14px; line-height:1.5; opacity:.6; padding:0 40px; pointer-events:none; transition:opacity .4s; }
+  body.home .bar, body.home #tip, body.end .bar, body.end #tip { display:none; }
+
+  /* full-screen layers: home, level end, settings */
+  .layer { position:fixed; inset:0; display:none; flex-direction:column; align-items:center; justify-content:space-between; text-align:center; padding:calc(env(safe-area-inset-top,0px) + 64px) 32px calc(env(safe-area-inset-bottom,0px) + 44px); pointer-events:none; }
+  .layer.show, body.home #home { display:flex; animation:fade .4s; }
+  @keyframes fade { from{opacity:0} }
+  .layer h1, .layer h2 { margin:0 0 10px; font-weight:300; letter-spacing:.02em; }
+  .layer h1 { font-size:40px; } .layer h2 { font-size:30px; }
+  .layer p { margin:0; font-size:14px; line-height:1.5; opacity:.6; }
+  .stack { display:flex; flex-direction:column; align-items:center; gap:14px; }
+  #homeLevel { opacity:.55; white-space:pre; }
+  #settings { justify-content:center; pointer-events:auto; background:color-mix(in srgb, var(--bg2) 86%, transparent); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); }
+  #settings .rows { width:min(100%,300px); margin:26px 0 34px; }
+  #settings .row { display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--line); }
+  #settings .row button { padding:14px 0 14px 30px; }
+</style>
+  <script type="module" crossorigin src="./assets/index-C_zDMFxG.js"></script>
+</head>
+<body>
+<div id="shadow"></div>
+<canvas id="c"></canvas>
+
+<div class="bar" id="top">
+  <button class="icon" id="back" aria-label="Home"><svg viewBox="0 0 24 24"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg></button>
+  <div class="mid"><div class="label" id="level">Level 01</div><div id="hearts"></div></div>
+  <button class="icon" id="gear" aria-label="Settings"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button>
+</div>
+<div id="tip"></div>
+<div class="bar" id="bottom">
+  <div class="label" id="left"></div>
+  <button class="label pill" id="hint">Hint <span id="hintN">3</span></button>
+</div>
+
+<div class="layer" id="home">
+  <div><h1>Snarl</h1><p>Pull every arrow free.</p></div>
+  <div class="stack"><div class="label" id="homeLevel"></div><button class="label pill solid" id="play">Play</button><button class="label" id="fresh" style="padding:12px 20px;opacity:.6;display:none">Start over</button></div>
+</div>
+
+<div class="layer" id="modal">
+  <div><h2 id="mTitle"></h2><p id="mText"></p></div>
+  <div class="stack"><button class="label pill solid" id="mBtn"></button><button class="label" id="mSkip" style="padding:12px 20px;opacity:.6;display:none">Skip level</button><button class="label" id="mHome" style="padding:12px 20px;opacity:.6">Home</button></div>
+</div>
+
+<div class="layer" id="settings">
+  <h2>Settings</h2>
+  <div class="rows">
+    <div class="row"><span class="label">Sound</span><button class="label" id="sSound">On</button></div>
+    <div class="row"><span class="label">Haptics</span><button class="label" id="sHaptics">On</button></div>
+    <div class="row"><span class="label">This level</span><button class="label" id="sRestart">Restart</button></div>
+    <div class="row"><span class="label">Stuck?</span><button class="label" id="sSkip">Skip level</button></div>
+  </div>
+  <button class="label pill" id="sClose">Done</button>
+</div>
+
+</body>
+</html>
